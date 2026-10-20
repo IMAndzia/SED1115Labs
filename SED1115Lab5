@@ -1,0 +1,43 @@
+"""
+Time-Game 
+15-second perception game using DS3231 RTC.
+Logs each trial to log.txt on Pico flash.
+"""
+
+from machine import Pin, I2C
+import time
+
+i2c = I2C(1, sda=Pin(14), scl=Pin(15))
+RTC = 0x68
+button = Pin(22, Pin.IN, Pin.PULL_UP)
+log = open("log.txt", "a")
+
+def bcd_to_int(b): return (b >> 4) * 10 + (b & 0x0F)
+
+def read_sec():
+    try:
+        return bcd_to_int(i2c.readfrom_mem(RTC, 0x00, 1)[0])
+    except OSError:
+        print("RTC reads error."); return None
+
+print("Press to start 15s count...")
+
+try:
+    while True:
+        while button.value(): pass
+        start = read_sec()
+        if start is None: continue
+        while not button.value(): pass
+        while button.value(): pass
+        end = read_sec()
+        if end is None: continue
+
+        t = (end - start) % 60
+        print("You counted:", t, "s")
+        log.write(f"{t}\n"); log.flush()
+        print("Press to retry or Ctrl+C to stop")
+        while not button.value(): pass
+        while button.value(): pass
+
+finally:
+    log.close(); print("Log saved.")
